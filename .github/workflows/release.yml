@@ -1,0 +1,87 @@
+name: Release
+
+# 推 tag（v*）自动出正式 Release；workflow_dispatch 用于手动试跑整条流水线，
+# 此时版本号取 Info.plist。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 工具链
+        run: swift --version
+
+      # 发布前先跑全部离线检查：检查不过就不出包。（数量随硬件略有差异：
+      # 截图坐标检查按连接的显示器逐台验证。）
+      - name: 离线检查
+        run: swift run insight-check
+
+      # 产出 dist/Insight.app（ad-hoc 签名）。脚本自带 staging 目录签名逻辑，
+      # 在 CI 上同样成立。
+      - name: 构建 Insight.app
+        run: scripts/build_app.sh
+
+      - name: 打包并计算 SHA256
+        run: |
+          if [[ "$GITHUB_REF_NAME" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+          fi
+          ZIP="Insight-${VERSION}.zip"
+          ditto -c -k --keepParent dist/Insight.app "$ZIP"
+          SHASUM="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
+          {
+            echo "ZIP=$ZIP"
+            echo "SHA256=$SHASUM"
+          } >> "$GITHUB_ENV"
+
+      - name: 生成 Release 说明
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## 系统要求
+
+          **Apple 芯片 Mac + macOS 26 及以上。**
+
+          ## 安装
+
+          1. 下载下方的 \`Insight-x.y.z.zip\`，解压后把 **Insight.app** 拖进「应用程序」；
+          2. 打开时若提示「无法验证开发者」，见下一条。
+
+          ## ⚠️ 尚未代码签名（ad-hoc 签名）
+
+          首次打开提示「无法验证开发者」时，两种办法任选其一：
+
+          - 确认文件来自本 Releases 页后，在「应用程序」文件夹里**右键 Insight → 打开**，再点一次「打开」；
+          - 或在终端执行：
+
+          ```bash
+          xattr -dr com.apple.quarantine /Applications/Insight.app
+          ```
+
+          建议先用 \`shasum -a 256\` 核对下载文件的校验和（见下方 Assets 信息）。
+
+          ## 校验和
+
+          ```
+          SHA256: ${SHA256_PLACEHOLDER}
+          ```
+          NOTES
+          # 占位符不能用 heredoc 变量展开（会连 `` ` `` 一起转义），这里单独替换。
+          sed -i '' "s/\${SHA256_PLACEHOLDER}/$SHA256/" release-notes.md
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP }}
+          body_path: release-notes.md
+          make_latest: true

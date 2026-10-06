@@ -216,6 +216,15 @@ final class Settings {
 	/// stop the source appearing in the panel.
 	var autoCopySourceToClipboard = true
 	var autoCopyOnClose = false
+	/// When the 划词 hotkey finds no selection anywhere, read the text off the pasteboard instead
+	/// and run it through the same panel.
+	///
+	/// On by default: pressing the hotkey with nothing selected is an explicit ask, and the panel
+	/// labels the result 「来源：剪贴板」 so the fallback is never mistaken for a selection. The
+	/// pairing matters — an unlabelled clipboard read would look like the app sniffing the
+	/// pasteboard, which is exactly the suspicion the label exists to prevent. macOS also shows
+	/// its own pasteboard-consent prompt the first time another app's text is read.
+	var clipboardFallback = true
 	var appearance = "system"
 	var summaryCollapsed = false
 	var translationCollapsed = false
@@ -568,6 +577,7 @@ final class Settings {
 		closeOnOutsideClick = json.closeOnOutsideClick
 		autoCopySourceToClipboard = json.autoCopySourceToClipboard ?? true
 		autoCopyOnClose = json.autoCopyOnClose
+		clipboardFallback = json.clipboardFallback ?? true
 		appearance = json.appearance
 		summaryCollapsed = json.summaryCollapsed
 		translationCollapsed = json.translationCollapsed
@@ -649,6 +659,7 @@ final class Settings {
 			closeOnOutsideClick: closeOnOutsideClick,
 			autoCopySourceToClipboard: autoCopySourceToClipboard,
 			autoCopyOnClose: autoCopyOnClose,
+			clipboardFallback: clipboardFallback,
 			appearance: appearance,
 			summaryCollapsed: summaryCollapsed,
 			translationCollapsed: translationCollapsed,
@@ -727,6 +738,9 @@ final class Settings {
 		/// default is `true`, so it must not decode as `false`.
 		var autoCopySourceToClipboard: Bool?
 		var autoCopyOnClose: Bool
+		/// Optional for the same reason as `autoCopySourceToClipboard` right above: configs
+		/// written before v1.0.1 have no such key, and the default is `true`.
+		var clipboardFallback: Bool?
 		var appearance: String
 		var summaryCollapsed: Bool
 		var translationCollapsed: Bool

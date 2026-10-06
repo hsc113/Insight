@@ -716,6 +716,12 @@ struct FeatureSettings: View {
 				.font(.system(size: 11))
 				.foregroundStyle(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
+
+			Toggle("没划中文字时改用剪贴板", isOn: $settings.clipboardFallback)
+				.toggleStyle(.switch)
+				.controlSize(.small)
+				.help("划词热键没读到选中的文字时，自动改用剪贴板里的文字进行翻译和总结；面板顶部会标注「来源：剪贴板」")
+				.onChange(of: settings.clipboardFallback) { _, _ in settings.commit() }
 		}
 		.padding(15)
 		.frame(maxWidth: .infinity, alignment: .leading)
@@ -994,13 +1000,19 @@ struct PermissionsSection: View {
 /// Not `private`, so the offline checks can build it — the page was edited and that is exactly the
 /// kind of change the off-screen build exists to cover.
 struct AboutSettings: View {
+	/// Read from Info.plist so there is one version to maintain, not two. Empty in a bare
+	/// `swift run` (no bundle), where 开发版 reads better than a blank.
+	private static let version =
+		(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)
+			.flatMap { $0.isEmpty ? nil : $0 } ?? "开发版"
+
 	var body: some View {
 		ScrollView {
 			VStack(alignment: .leading, spacing: 14) {
 				VStack(alignment: .leading, spacing: 6) {
 					Label("Insight", systemImage: "info.circle")
 						.font(.system(size: 14, weight: .semibold))
-					Text("版本 1.0.0 · 仅支持 Apple 芯片 macOS 26 及以上")
+					Text("版本 \(Self.version) · 仅支持 Apple 芯片 macOS 26 及以上")
 						.font(.system(size: 11))
 						.foregroundStyle(.secondary)
 				}

@@ -22,4 +22,17 @@ enum ClipboardWriter {
 		Log.capture("copied \(trimmed.count) chars to clipboard")
 		return true
 	}
+
+	/// Reads text back off the pasteboard, trimmed; nil when there is no text (images, files,
+	/// empty). The read half of the clipboard fallback — `handleCapturedText` calls this only
+	/// after the selection read came up empty and the user asked for the fallback in settings.
+	///
+	/// The first read of another app's text makes macOS show its own pasteboard-consent prompt,
+	/// which is fine: a feature that reads the clipboard should be seen to ask.
+	@MainActor
+	static func pastedText() -> String? {
+		guard let text = NSPasteboard.general.string(forType: .string) else { return nil }
+		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+		return trimmed.isEmpty ? nil : trimmed
+	}
 }

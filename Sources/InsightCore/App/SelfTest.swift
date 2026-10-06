@@ -26,6 +26,7 @@ enum SelfTest {
 		await hotkeys()
 		await panelBehaviour()
 		await draftReturnBinding()
+		await clipboardFallback()
 		await panelChrome()
 		menu()
 		settingsWindowHotkeys()
@@ -297,6 +298,48 @@ enum SelfTest {
 
 		model.inputExpanded = false
 		panel.hide()
+	}
+
+	/// The fallback path, end to end through the real funnel `handleCapturedText`: no selection
+	/// anywhere, a canary on the pasteboard, and the panel has to show the canary **labelled**.
+	/// The pipeline this starts fires against the configured provider, same as 回车分析 above.
+	private static func clipboardFallback() async {
+		section("剪贴板回退")
+		armWatchdog(seconds: 40)
+
+		let model = PanelController.shared.model
+		let pasteboard = NSPasteboard.general
+		let saved = pasteboard.string(forType: .string)
+		defer {
+			pasteboard.clearContents()
+			if let saved { pasteboard.setString(saved, forType: .string) }
+		}
+
+		// The canary goes through `copy` so the read is exercised against a real pasteboard
+		// round trip, not a fabricated model state.
+		let canary = "Insight 剪贴板回退自检 \(Int.random(in: 1000...9999))"
+		ClipboardWriter.copy(canary)
+
+		let token = PanelController.shared.beginCapture(label: "读取选区…")
+		AppController.shared.handleCapturedText(nil, token: token)
+		check(model.input == canary, "无选区时改用剪贴板内容")
+		check(model.sourceLabel == "来源：剪贴板", "面板标注「来源：剪贴板」")
+
+		// A plain selection present clears the label — the badge must not stick to the panel.
+		model.present(text: "一段普通的选中文本")
+		check(model.sourceLabel == nil, "换成选区来源后标注消失")
+
+		// Off means off: the empty clipboard exercises the same "give up" leg as a disabled
+		// fallback, and both must land on the plain hint without touching the input.
+		let fallback = Settings.shared.clipboardFallback
+		Settings.shared.clipboardFallback = false
+		defer { Settings.shared.clipboardFallback = fallback }
+		pasteboard.clearContents()
+
+		let token2 = PanelController.shared.beginCapture(label: "读取选区…")
+		AppController.shared.handleCapturedText(nil, token: token2)
+		check(model.transientHint == "没有检测到选中的文字", "关闭回退且剪贴板为空时给出提示")
+		check(model.input == "一段普通的选中文本", "提示不动面板上已有的内容")
 	}
 
 	private static func pressReturn(flags: CGEventFlags) {

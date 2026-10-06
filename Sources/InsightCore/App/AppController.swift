@@ -130,7 +130,10 @@ final class AppController {
 	/// first — the panel is a `.nonactivatingPanel` brought forward with `makeKeyAndOrderFront`, so
 	/// `isKeyWindow` is often still true while the user has a fresh selection in their document, and
 	/// the second ⌥D turned into a lookup of a word from the *first* result.
-	private func handleCapturedText(_ text: String?, token: Int) {
+	/// Not `private` for the same reason as the checkable views: the self test drives the whole
+	/// capture→fallback→panel path through this one funnel, and a copy just for the test would
+	/// not be the same path.
+	func handleCapturedText(_ text: String?, token: Int) {
 		let panel = PanelController.shared
 		if let text {
 			// Re-pressing the key on an unchanged selection whose last attempt finished cleanly.
@@ -152,6 +155,17 @@ final class AppController {
 			panel.lookup(word: word)
 			return
 		}
+
+		// Still nothing: the clipboard fallback, when the user has it on. The press was an
+		// explicit ask, the panel labels the result 「来源：剪贴板」, and `captureSource` is
+		// skipped — the text is already on the pasteboard, writing it back would only bump the
+		// change count.
+		if Settings.shared.clipboardFallback, let clipped = ClipboardWriter.pastedText() {
+			Log.capture("clipboard fallback: \(clipped.count) chars")
+			panel.present(text: clipped, source: .clipboard)
+			return
+		}
+
 		panel.endCapture(hint: "没有检测到选中的文字")
 	}
 

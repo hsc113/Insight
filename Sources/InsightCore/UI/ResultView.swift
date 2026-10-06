@@ -590,6 +590,18 @@ private struct InputStrip: View {
 			model.expandInput()
 		} label: {
 			HStack(spacing: 7) {
+				// The clipboard fallback labels itself, right where the captured text is shown:
+				// a result that arrived without a selection would otherwise be indistinguishable
+				// from one read off the screen.
+				if let source = model.sourceLabel {
+					Text(source)
+						.font(.system(size: 9, weight: .medium))
+						.foregroundStyle(.secondary)
+						.padding(.horizontal, 5)
+						.padding(.vertical, 2)
+						.background(Capsule().fill(Color.primary.opacity(0.06)))
+				}
+
 				// No leading glyph. There was a `text.alignleft` here, and the top bar already
 				// carries the same shape next to the word "Insight" — two identical marks 20pt
 				// apart, one of which said nothing the row's own text did not.

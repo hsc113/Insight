@@ -7,6 +7,13 @@ import SwiftUI
 @MainActor
 @Observable
 final class PanelModel {
+	/// Which capture path filled the panel. Only the clipboard fallback is named: it is the one
+	/// source a user could confuse with something else, because nothing on screen was selected.
+	enum CaptureSource {
+		case selection
+		case clipboard
+	}
+
 	var input = ""
 	var draft = ""
 	var inputExpanded = false
@@ -27,12 +34,16 @@ final class PanelModel {
 	var noticeToken = 0
 	/// Set when the user edits the input and the collapsed preview needs to refresh.
 	let pipeline = InsightPipeline()
+	/// Where the current input came from. Non-nil only when it did not come from a selection —
+	/// a selection is what the panel is *for* and needs no label, while the clipboard fallback
+	/// labels itself so its result is never mistaken for a read of what was on screen.
+	var sourceLabel: String?
 
 	private var noticeTask: Task<Void, Never>?
 
 	var isCapturing: Bool { captureLabel != nil }
 
-	func present(text: String?) {
+	func present(text: String?, source: CaptureSource = .selection) {
 		permission = nil
 		captureLabel = nil
 		noticeTask?.cancel()
@@ -42,12 +53,14 @@ final class PanelModel {
 			input = text
 			draft = text
 			inputExpanded = false
+			sourceLabel = source == .clipboard ? "来源：剪贴板" : nil
 			pipeline.run(text)
 		} else {
 			hint = "没有检测到文字"
 			input = ""
 			draft = ""
 			inputExpanded = true
+			sourceLabel = nil
 			pipeline.cancel()
 		}
 	}
@@ -226,8 +239,8 @@ final class PanelController: NSObject, NSWindowDelegate {
 
 	// MARK: - Presentation
 
-	func present(text: String?) {
-		model.present(text: text)
+	func present(text: String?, source: PanelModel.CaptureSource = .selection) {
+		model.present(text: text, source: source)
 		show()
 	}
 

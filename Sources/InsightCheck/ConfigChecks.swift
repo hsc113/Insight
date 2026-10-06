@@ -384,6 +384,9 @@ Check.group("提示词")
 		Check.group("原文自动进剪贴板")
 		await clipboardChecks()
 
+		Check.group("剪贴板回退")
+		await clipboardFallbackChecks()
+
 		Check.group("总结的 Markdown 渲染")
 		await markdownChecks()
 
@@ -1639,6 +1642,68 @@ Check.group("提示词")
 			Check.that(true, "剪贴板被其他进程占用，本轮跳过写入断言（功能本身已处理）")
 		}
 		Check.that(!ClipboardWriter.copy("   \n  "), "空白文本不写剪贴板")
+	}
+
+	@MainActor
+	private static func clipboardFallbackChecks() async {
+		// On by default: the hotkey press is an explicit ask, and the panel labels the result
+		// 「来源：剪贴板」 so the fallback is never mistaken for a read of the screen.
+		Check.that(Settings.shared.clipboardFallback, "剪贴板回退默认开启")
+
+		// A config written before v1.0.1 has no key for it — it must decode as the default, not
+		// as `false`; and an explicit `false` from someone who turned it off must stay off.
+		let legacy = Settings.decodeConfig(
+			Data("{\"closeOnOutsideClick\":true}".utf8), defaults: Settings.shared.snapshot())
+		Check.that(
+			legacy?.clipboardFallback == true, "旧配置缺这个字段时取默认（开，而不是当成关）")
+		let optedOut = Settings.decodeConfig(
+			Data("{\"clipboardFallback\":false}".utf8), defaults: Settings.shared.snapshot())
+		Check.that(optedOut?.clipboardFallback == false, "显式关闭能被原样读回")
+
+		// The read half. Same pasteboard-lock tolerance as `clipboardChecks` above: a busy
+		// machine holds the pasteboard open often enough that a hard assert here would flake.
+		let pasteboard = NSPasteboard.general
+		let saved = pasteboard.string(forType: .string)
+		defer {
+			pasteboard.clearContents()
+			if let saved { pasteboard.setString(saved, forType: .string) }
+		}
+
+		if ClipboardWriter.copy("Insight 剪贴板回退探针") {
+			Check.equal(
+				ClipboardWriter.pastedText(), "Insight 剪贴板回退探针", "读回的就是刚写入的文本")
+		} else {
+			Check.that(true, "剪贴板被其他进程占用，本轮跳过读回断言")
+		}
+		pasteboard.clearContents()
+		Check.that(ClipboardWriter.pastedText() == nil, "剪贴板里没有文本时读回为 nil")
+
+		// And the label: only the fallback names its source; a selection needs no badge.
+		//
+		// `present` starts the pipeline, and the checker must never spend the user's tokens —
+		// so the provider is pointed at a dead local port first: the request fails instantly,
+		// locally and for free. (Secrets persistence is off for this process, so the probe
+		// key stays in memory too.)
+		var dead = LLMProviderConfig.makeCustom()
+		dead.baseURL = "http://127.0.0.1:1"
+		dead.model = "probe"
+		dead.apiKey = "probe-key"
+		let savedProviders = Settings.shared.providers
+		let savedProviderID = Settings.shared.llmProviderID
+		Settings.shared.providers = [dead]
+		Settings.shared.llmProviderID = dead.id
+		defer {
+			Settings.shared.providers = savedProviders
+			Settings.shared.llmProviderID = savedProviderID
+		}
+
+		let model = PanelModel()
+		model.present(text: "来自剪贴板的文字", source: .clipboard)
+		Check.equal(model.sourceLabel, "来源：剪贴板", "剪贴板来源在面板上标注")
+		model.present(text: "选中的文字")
+		Check.that(model.sourceLabel == nil, "选区来源不标注（面板本来就是干这个的）")
+		model.present(text: nil)
+		Check.that(model.sourceLabel == nil, "空状态不残留来源标注")
 	}
 
 	@MainActor

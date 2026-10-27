@@ -57,8 +57,12 @@ struct LLMProviderConfig: Codable, Identifiable, Equatable, Sendable {
 			id: "deepseek", name: "DeepSeek", flavor: .deepSeek,
 			baseURL: "https://api.deepseek.com", chatPath: "/chat/completions",
 			modelsPaths: ["/models", "/v1/models"],
-			model: "deepseek-chat",
-			models: ["deepseek-chat", "deepseek-reasoner"],
+			model: "deepseek-flash",
+			models: ["deepseek-flash", "deepseek-v4-pro"],
+			// Off, because these models reason by default and every token they reason with is
+			// billed and waited for. The app's two jobs — summarise a selection, translate a
+			// selection — are not the kind of work that gets better with a chain of thought, and
+			// the defaults here are what a new install gets. Users who want it can turn it on.
 			thinkingEnabled: false, isBuiltin: true),
 		.init(
 			id: "zhipu", name: "智谱 GLM", flavor: .zhipu,

@@ -603,7 +603,7 @@ enum SelfTest {
 			return
 		}
 		let base = ProcessInfo.processInfo.environment["SELFTEST_LLM_BASE"] ?? "https://api.deepseek.com"
-		let model = ProcessInfo.processInfo.environment["SELFTEST_LLM_MODEL"] ?? "deepseek-chat"
+		let model = ProcessInfo.processInfo.environment["SELFTEST_LLM_MODEL"] ?? "deepseek-flash"
 
 		// Assigning `provider.apiKey` writes through to `Secrets` — that computed setter *is* the
 		// storage path — and this provider's id is random, so without the guard each run left a

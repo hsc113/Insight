@@ -82,7 +82,9 @@ enum LLMClient {
 		return nil
 	}
 
-	private static func chatBody(
+	/// Internal rather than private so `insight-check` can assert on the assembled body — the
+	/// `max_tokens` rule below is invisible on the wire otherwise.
+	static func chatBody(
 		provider: LLMProviderConfig, systemPrompt: String, userPrompt: String, maxTokens: Int? = nil
 	) -> [String: Any] {
 		var body: [String: Any] = [
@@ -93,7 +95,11 @@ enum LLMClient {
 				["role": "user", "content": userPrompt],
 			],
 		]
-		if let maxTokens, maxTokens > 0, !isReasoningModel(provider.model) {
+		// `willReason`, not `isReasoningModel`: on DeepSeek the *toggle* decides, and the current
+		// models are not named like reasoning models. Measured on `deepseek-flash`: with thinking
+		// on, `max_tokens: 8` produced `completion_tokens: 8, reasoning_tokens: 8` and an empty
+		// answer — the whole cap went to the chain of thought.
+		if let maxTokens, maxTokens > 0, !willReason(provider) {
 			// Reasoning models bill `max_tokens` against the chain of thought as well as the
 			// answer, so a cap sized for the summary gets spent on thinking and can truncate the
 			// answer to nothing. There the prompt's own budget is the length control, which is
@@ -111,9 +117,14 @@ enum LLMClient {
 		let on = provider.thinkingEnabled
 		switch provider.flavor {
 		case .deepSeek:
-			// DeepSeek has no switch; `deepseek-reasoner` always reasons and `deepseek-chat`
-			// never does. The picker handles that, so nothing to send.
-			return [:]
+			// DeepSeek used to bind thinking to the model name (`deepseek-reasoner` always
+			// reasoned, `deepseek-chat` never did). The V4 models broke that: `deepseek-flash`
+			// and `deepseek-v4-pro` ship with **thinking on by default**, and the docs put the
+			// switch in the request body. So this is the one vendor where the field is sent
+			// unconditionally — including `enabled`, because a model whose default is on has to
+			// hear "off" from us or the user's choice is silently ignored. Measured against the
+			// live API: no field → `reasoning_content` in the stream; `disabled` → none.
+			return ["thinking": ["type": on ? "enabled" : "disabled"]]
 		case .zhipu:
 			guard isReasoningModel(provider.model) else { return [:] }
 			return ["thinking": ["type": on ? "enabled" : "disabled"]]
@@ -124,6 +135,16 @@ enum LLMClient {
 			guard isReasoningModel(provider.model) else { return [:] }
 			return ["reasoning_effort": on ? "medium" : "none"]
 		}
+	}
+
+	/// Everything else in the body hangs off "will this request reason": the output cap has to be
+	/// withheld, and the UI's hint has to say something true.
+	///
+	/// Kept separate from `isReasoningModel` because the name is not the whole story any more —
+	/// see `.deepSeek` in `thinkingParameters`.
+	static func willReason(_ provider: LLMProviderConfig) -> Bool {
+		if provider.flavor == .deepSeek { return provider.thinkingEnabled }
+		return isReasoningModel(provider.model)
 	}
 
 	static func isReasoningModel(_ model: String) -> Bool {

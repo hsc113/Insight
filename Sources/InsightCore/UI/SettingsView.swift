@@ -518,10 +518,11 @@ private struct SummarySection: View {
 
 	private var thinkingHint: String {
 		let provider = Settings.shared.currentProvider
-		if LLMClient.isReasoningModel(provider.model) {
-			return provider.thinkingEnabled ? "模型会先推理再回答" : "将请求模型跳过推理阶段"
+		// `willReason` as well as the name: on DeepSeek the switch, not the model name, decides.
+		guard LLMClient.willReason(provider) || LLMClient.isReasoningModel(provider.model) else {
+			return "当前模型不推理，此项无效"
 		}
-		return "当前模型不推理，此项无效"
+		return provider.thinkingEnabled ? "模型会先推理再回答，更慢也更贵" : "直接回答，不先推理"
 	}
 
 	private func builtinURL(for provider: LLMProviderConfig) -> String? {

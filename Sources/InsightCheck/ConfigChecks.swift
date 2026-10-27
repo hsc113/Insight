@@ -19,9 +19,20 @@ enum ConfigChecks {
 			return LLMClient.thinkingParameters(provider: provider)
 		}
 
-		// DeepSeek has no switch — `deepseek-reasoner` always reasons, `deepseek-chat` never does.
-		Check.that(params(.deepSeek, "deepseek-reasoner", true).isEmpty, "DeepSeek 不下发思考参数")
-		Check.that(params(.deepSeek, "deepseek-reasoner", false).isEmpty, "DeepSeek 关闭思考同样靠模型名")
+		// DeepSeek used to need nothing sent — the model name said it all. The V4 models reason by
+		// default, so the switch *has* to be sent, in both directions: `deepseek-flash` with no
+		// field at all streams `reasoning_content`, which is the bug this replaced.
+		Check.equal(
+			params(.deepSeek, "deepseek-flash", false)["thinking"] as? [String: String],
+			["type": "disabled"], "DeepSeek 关闭思考下发 thinking.type=disabled")
+		Check.equal(
+			params(.deepSeek, "deepseek-flash", true)["thinking"] as? [String: String],
+			["type": "enabled"], "DeepSeek 开启思考下发 thinking.type=enabled")
+		// The old names still route, so the switch must reach them too rather than silently
+		// doing nothing on a model the user picked from a stale config.
+		Check.that(
+			!(params(.deepSeek, "deepseek-reasoner", false)["thinking"] == nil),
+			"旧模型名同样下发思考开关")
 
 		Check.equal(
 			params(.zhipu, "glm-4.6", true)["thinking"] as? [String: String], ["type": "enabled"],
@@ -39,6 +50,30 @@ enum ConfigChecks {
 			params(.openAI, "gpt-5", false)["reasoning_effort"] as? String, "none",
 			"通用 OpenAI 兼容端点关闭思考用 reasoning_effort=none")
 		Check.that(params(.openAI, "gpt-4o", false).isEmpty, "非推理模型不下发该字段")
+
+		// The output cap has to follow the *effective* decision, not the model name. DeepSeek V4
+		// reasons by default under a name no marker list recognises, so keying the cap off
+		// `isReasoningModel` let the summary's `max_tokens` through while the model was thinking —
+		// measured live: `max_tokens: 8` became 8 reasoning tokens and an empty answer.
+		func body(_ flavor: LLMFlavor, _ model: String, _ on: Bool) -> [String: Any] {
+			var provider = LLMProviderConfig.makeCustom()
+			provider.flavor = flavor
+			provider.model = model
+			provider.thinkingEnabled = on
+			return LLMClient.chatBody(
+				provider: provider, systemPrompt: "s", userPrompt: "u", maxTokens: 300)
+		}
+		Check.that(
+			body(.deepSeek, "deepseek-flash", true)["max_tokens"] == nil,
+			"DeepSeek 思考时不下发 max_tokens（会被思维链吃光）")
+		Check.equal(
+			body(.deepSeek, "deepseek-flash", false)["max_tokens"] as? Int, 300,
+			"DeepSeek 不思考时照常下发 max_tokens")
+		Check.equal(
+			body(.zhipu, "glm-4-flash", false)["max_tokens"] as? Int, 300,
+			"非推理模型带 max_tokens")
+		Check.that(
+			body(.zhipu, "glm-4.6", true)["max_tokens"] == nil, "GLM 思考时不下发 max_tokens")
 
 		Check.group("推理模型识别")
 		for model in ["deepseek-reasoner", "glm-4.6", "qwen3-235b", "gpt-5", "o3-mini", "qwq-32b"] {

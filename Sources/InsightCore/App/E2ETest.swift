@@ -81,7 +81,7 @@ enum E2ETest {
 
 	private static func apiKey() -> String { env("SELFTEST_LLM_KEY", "") }
 	private static func baseURL() -> String { env("SELFTEST_LLM_BASE", "https://api.deepseek.com") }
-	private static func model() -> String { env("SELFTEST_LLM_MODEL", "deepseek-chat") }
+	private static func model() -> String { env("SELFTEST_LLM_MODEL", "deepseek-flash") }
 
 	// MARK: - 1. API key persistence
 

@@ -17,9 +17,9 @@ struct ResultView: View {
 
 	@State private var appleConfig: TranslationSession.Configuration?
 
-	/// 14pt side margin. Everything aligns to it, which is what makes the panel read as one
-	/// object rather than a stack of rows.
-	private let gutter: CGFloat = 14
+	/// Side margin. The cards, the input strip and the top bar all start at it, which is what makes
+	/// the panel read as one object rather than a stack of rows.
+	private let gutter: CGFloat = UI.Space.x3
 
 	var body: some View {
 		let theme = Settings.shared.panelTheme
@@ -28,7 +28,7 @@ struct ResultView: View {
 			topBar(theme: theme)
 			InputStrip(model: model, gutter: gutter)
 				.padding(.horizontal, gutter)
-				.padding(.bottom, 10)
+				.padding(.bottom, UI.Space.x2)
 			statusLine
 
 			if let permission = model.permission {
@@ -83,7 +83,7 @@ struct ResultView: View {
 		if let label = model.captureLabel {
 			statusNotice(text: label, icon: "arrow.triangle.2.circlepath", tint: .secondary, busy: true)
 		} else if let notice = model.transientHint {
-			statusNotice(text: notice, icon: "exclamationmark.triangle.fill", tint: .orange, busy: false)
+			statusNotice(text: notice, icon: "exclamationmark.circle", tint: .secondary, busy: false)
 		}
 	}
 
@@ -92,14 +92,14 @@ struct ResultView: View {
 	) -> some View {
 		HStack(spacing: 5) {
 			Image(systemName: icon)
-				.font(.system(size: 9.5))
+				.font(.system(size: UI.Size.micro))
 			Text(text)
-				.font(.system(size: 10.5))
+				.font(.system(size: UI.Size.caption))
 			Spacer()
 		}
 		.foregroundStyle(tint)
 		.padding(.horizontal, gutter)
-		.padding(.bottom, 7)
+		.padding(.bottom, UI.Space.x2)
 		.transition(.opacity)
 	}
 
@@ -118,13 +118,9 @@ struct ResultView: View {
 	private func topBar(theme: PanelTheme) -> some View {
 		HStack(spacing: 6) {
 			HStack(spacing: 6) {
-				Image(systemName: "text.alignleft")
-					.font(.system(size: 10, weight: .semibold))
-					.foregroundStyle(.quaternary)
-
 				Text("Insight")
-					.font(.system(size: 11, weight: .medium))
-					.foregroundStyle(.tertiary)
+					.font(.system(size: UI.Size.caption, weight: .medium))
+					.foregroundStyle(.secondary)
 
 				Spacer(minLength: 8)
 			}
@@ -209,12 +205,11 @@ struct ResultView: View {
 						onChange: { setSplitFraction($0) },
 						onReset: { setSplitFraction(0.5) })
 						.frame(height: CardSplitHandle.grabHeight)
-						// Inset to the gutters, like every other rule in this panel.
-						.padding(.horizontal, gutter)
 				}
 
 				translationSection(theme: theme)
 					.frame(maxHeight: .infinity)
+					.padding(.bottom, UI.Space.x3)
 			}
 			.frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
 		}
@@ -359,7 +354,7 @@ private struct LanguagePairPicker: View {
 
 			Image(systemName: "arrow.right")
 				.font(.system(size: 8, weight: .semibold))
-				.foregroundStyle(.quaternary)
+				.foregroundStyle(.tertiary)
 
 			// Shows the setting, not the pipeline's resolved value: 自动识别 is a legal choice here
 			// and has to be tickable, so it can't be swapped for the detected source the way the
@@ -393,7 +388,7 @@ private struct LanguagePairPicker: View {
 			}
 		} label: {
 			Label(Languages.name(selection), systemImage: systemImage)
-				.font(.system(size: 10))
+				.font(.system(size: UI.Size.caption))
 				.labelStyle(.titleAndIcon)
 		}
 		.menuStyle(.borderlessButton)
@@ -476,13 +471,11 @@ struct CardSplitHandle: View {
 
 	var body: some View {
 		ZStack {
-			Rectangle()
-				.fill(Color.primary.opacity(hovering ? 0.22 : 0.08))
-				.frame(height: 1)
-
+			// No resting line: each card carries its own border, so a rule between them would be
+			// a second divider for the same boundary. The grip appears on hover only.
 			Capsule()
 				.fill(Color.primary.opacity(hovering ? 0.3 : 0))
-				.frame(width: 26, height: 3)
+				.frame(width: 28, height: 3)
 		}
 		.frame(height: Self.grabHeight)
 		.contentShape(Rectangle())
@@ -529,11 +522,11 @@ private struct BarButton: View {
 		Button(action: action) {
 			Image(systemName: system)
 				.font(.system(size: 11, weight: .medium))
-				.foregroundStyle(active ? Color.accentColor : (hovering ? Color.primary : Color.secondary))
+				.foregroundStyle(active ? Color.primary : (hovering ? Color.primary : Color.secondary))
 				.frame(width: 22, height: 22)
 				.background(
-					RoundedRectangle(cornerRadius: 5)
-						.fill(hovering && !disabled ? Color.primary.opacity(0.07) : Color.clear)
+					RoundedRectangle(cornerRadius: UI.Radius.sm)
+						.fill(hovering && !disabled ? UI.hover : Color.clear)
 				)
 				// Glass on the label rather than `.buttonStyle(.glass)`: the button style adds
 				// its own padding, which reflows the top bar. This keeps the layout untouched.
@@ -571,12 +564,12 @@ private struct InputStrip: View {
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
 		.background(
-			RoundedRectangle(cornerRadius: 7)
-				.fill(Color.primary.opacity(0.045))
+			RoundedRectangle(cornerRadius: UI.Radius.md)
+				.fill(UI.surface)
 		)
 		.overlay(
-			RoundedRectangle(cornerRadius: 7)
-				.strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+			RoundedRectangle(cornerRadius: UI.Radius.md)
+				.strokeBorder(UI.border, lineWidth: 1)
 		)
 		// Both directions, so collapsing hands focus back and Esc / ⌘R behave normally again.
 		.onChange(of: model.inputExpanded) { _, expanded in
@@ -595,18 +588,18 @@ private struct InputStrip: View {
 				// from one read off the screen.
 				if let source = model.sourceLabel {
 					Text(source)
-						.font(.system(size: 9, weight: .medium))
+						.font(.system(size: UI.Size.micro, weight: .medium))
 						.foregroundStyle(.secondary)
-						.padding(.horizontal, 5)
+						.padding(.horizontal, 6)
 						.padding(.vertical, 2)
-						.background(Capsule().fill(Color.primary.opacity(0.06)))
+						.background(RoundedRectangle(cornerRadius: UI.Radius.sm).fill(UI.hover))
 				}
 
 				// No leading glyph. There was a `text.alignleft` here, and the top bar already
 				// carries the same shape next to the word "Insight" — two identical marks 20pt
 				// apart, one of which said nothing the row's own text did not.
 				Text(model.input.isEmpty ? (model.hint ?? "无输入") : model.collapsedPreview)
-					.font(.system(size: 11.5))
+					.font(.system(size: UI.Size.label))
 					.foregroundStyle(model.input.isEmpty ? .tertiary : .secondary)
 					.lineLimit(1)
 
@@ -614,16 +607,16 @@ private struct InputStrip: View {
 
 				if !model.input.isEmpty {
 					Text("\(model.input.count)")
-						.font(.system(size: 10).monospacedDigit())
-						.foregroundStyle(.quaternary)
+						.font(.system(size: UI.Size.micro).monospacedDigit())
+						.foregroundStyle(.tertiary)
 				}
 
 				Image(systemName: "chevron.down")
 					.font(.system(size: 8, weight: .semibold))
-					.foregroundStyle(.quaternary)
+					.foregroundStyle(.tertiary)
 			}
-			.padding(.horizontal, 9)
-			.padding(.vertical, 6)
+			.padding(.horizontal, UI.Space.x3)
+			.padding(.vertical, UI.Space.x2)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
@@ -649,8 +642,8 @@ private struct InputStrip: View {
 				.frame(minHeight: 52)
 				.padding(4)
 				.background(
-					RoundedRectangle(cornerRadius: 5)
-						.fill(Color.primary.opacity(0.05))
+					RoundedRectangle(cornerRadius: UI.Radius.sm)
+						.fill(UI.surface)
 				)
 
 			HStack(spacing: 8) {
@@ -671,7 +664,7 @@ private struct InputStrip: View {
 					.help("也可以按回车")
 			}
 		}
-		.padding(8)
+		.padding(UI.Space.x2)
 	}
 }
 
@@ -697,8 +690,10 @@ private enum CardKind {
 
 	var accent: Color {
 		switch self {
-		case .summary: return .purple
-		case .translation: return .teal
+		// Monochrome, like the rest of the panel: the two cards are told apart by their title and
+		// icon, not by a hue each. Colour is kept for the one thing that needs finding — a failure.
+		case .summary: return .primary
+		case .translation: return .primary
 		}
 	}
 }
@@ -751,15 +746,20 @@ private struct ResultCard<Accessory: View>: View {
 			}
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
-		.padding(.horizontal, gutter)
-		.padding(.top, 4)
-		.padding(.bottom, 10)
-		// The card reads as a soft surface in every theme; only the functional layer gets glass.
+		.padding(.horizontal, UI.Space.x3)
+		.padding(.top, UI.Space.x1)
+		.padding(.bottom, UI.Space.x3)
+		// A real card: a barely-there fill and a hairline, inset to the panel margin. The border does
+		// the work the old full-bleed divider did. Only the functional layer gets glass.
 		.background(
-			RoundedRectangle(cornerRadius: 9)
-				.fill(theme.cardMaterial)
-				.opacity(theme == .solid ? 0 : 1)
+			RoundedRectangle(cornerRadius: UI.Radius.lg)
+				.fill(UI.surface)
 		)
+		.overlay(
+			RoundedRectangle(cornerRadius: UI.Radius.lg)
+				.strokeBorder(UI.border, lineWidth: 1)
+		)
+		.padding(.horizontal, gutter)
 	}
 
 	private var header: some View {
@@ -787,23 +787,23 @@ private struct ResultCard<Accessory: View>: View {
 				.foregroundStyle(enabled ? kind.accent : Color.secondary)
 
 			Text(kind.title)
-				.font(.system(size: 12, weight: .semibold))
+				.font(.system(size: UI.Size.label, weight: .semibold))
 
 			// The language pickers change a request this card no longer makes, so they go with it.
 			if !compact { headerAccessory }
 
 			if !enabled {
 				Text("未启用")
-					.font(.system(size: 10))
-					.foregroundStyle(.quaternary)
+					.font(.system(size: UI.Size.micro))
+					.foregroundStyle(.tertiary)
 			}
 
 			Spacer(minLength: 6)
 
 			if let firstTokenMs, !compact {
 				Text("\(firstTokenMs) ms")
-					.font(.system(size: 10).monospacedDigit())
-					.foregroundStyle(.quaternary)
+					.font(.system(size: UI.Size.micro).monospacedDigit())
+					.foregroundStyle(.tertiary)
 			}
 
 			// Left, not cleared: a model that is mid-stream when the card is switched off keeps
@@ -855,18 +855,17 @@ private struct ResultCard<Accessory: View>: View {
 			ProgressView().controlSize(.small).scaleEffect(0.55).frame(width: 13, height: 13)
 		case .streaming:
 			Circle()
-				.fill(kind.accent)
+				.fill(Color.primary.opacity(0.6))
 				.frame(width: 5, height: 5)
-				.shadow(color: kind.accent.opacity(0.5), radius: 3)
 		case .done:
 			Image(systemName: "checkmark")
 				.font(.system(size: 9, weight: .bold))
-				.foregroundStyle(.quaternary)
+				.foregroundStyle(.tertiary)
 		case .failed:
 			Button(action: onRetry) {
-				Image(systemName: "exclamationmark.triangle.fill")
-					.font(.system(size: 10))
-					.foregroundStyle(.orange)
+				Image(systemName: "exclamationmark.circle.fill")
+					.font(.system(size: UI.Size.caption))
+					.foregroundStyle(UI.destructive)
 					.frame(width: 16, height: 16)
 					.contentShape(Rectangle())
 			}
@@ -940,8 +939,8 @@ private struct ResultCard<Accessory: View>: View {
 		switch phase {
 		case .failed(let message):
 			Text(message)
-				.font(.system(size: 11.5))
-				.foregroundStyle(.orange)
+				.font(.system(size: UI.Size.label))
+				.foregroundStyle(UI.destructive)
 				.textSelection(.enabled)
 				.fixedSize(horizontal: false, vertical: true)
 				.padding(.top, 4)
@@ -952,8 +951,8 @@ private struct ResultCard<Accessory: View>: View {
 			// instead and never gets here. So `.idle` on a live card means exactly one thing — the
 			// feature is on and nothing has been asked of it yet.
 			Text("等待输入")
-				.font(.system(size: 11.5))
-				.foregroundStyle(.quaternary)
+				.font(.system(size: UI.Size.label))
+				.foregroundStyle(.tertiary)
 				.padding(.top, 4)
 				.frame(maxWidth: .infinity, alignment: .leading)
 
@@ -967,8 +966,8 @@ private struct ResultCard<Accessory: View>: View {
 						.padding(.top, 4)
 				} else {
 					Text(text.isEmpty ? " " : text)
-						.font(.system(size: 13))
-						.lineSpacing(3.5)
+						.font(.system(size: UI.Size.body))
+						.lineSpacing(4)
 						.textSelection(.enabled)
 						.frame(maxWidth: .infinity, alignment: .leading)
 						.padding(.top, 4)

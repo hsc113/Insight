@@ -425,6 +425,9 @@ Check.group("提示词")
 		Check.group("读不到选区时模拟 ⌘C 取词")
 		await copyCaptureChecks()
 
+		Check.group("界面 token")
+		uiTokenChecks()
+
 		Check.group("总结的 Markdown 渲染")
 		await markdownChecks()
 
@@ -1773,6 +1776,21 @@ Check.group("提示词")
 		} else {
 			Check.that(true, "剪贴板被其他进程占用，本轮跳过真实还原断言")
 		}
+	}
+
+	/// The tokens are the contract the views are written against, so the rules they promise are
+	/// pinned: a 4pt grid with no odd steps, and radii that strictly grow so a button inside a card
+	/// never shares the card's radius.
+	private static func uiTokenChecks() {
+		let spaces = [UI.Space.x1, UI.Space.x2, UI.Space.x3, UI.Space.x4]
+		Check.that(spaces.allSatisfy { $0.truncatingRemainder(dividingBy: 4) == 0 }, "间距都落在 4pt 网格上")
+		Check.that(spaces == spaces.sorted(), "间距档位由小到大")
+		Check.that(
+			UI.Radius.sm < UI.Radius.md && UI.Radius.md < UI.Radius.lg, "圆角 sm < md < lg，嵌套的形状不会同半径")
+		Check.that(
+			UI.Size.micro < UI.Size.caption && UI.Size.caption < UI.Size.label
+				&& UI.Size.label < UI.Size.body,
+			"字号四档严格递增")
 	}
 
 	@MainActor

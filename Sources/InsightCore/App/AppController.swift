@@ -112,6 +112,11 @@ final class AppController {
 		// *that* word and turn the lookup into a fresh translation. Decided here, on the main actor,
 		// where the panel's views can be read.
 		let allowCopy = PanelController.shared.selectedTextInsidePanel() == nil
+		// Who gets the ⌘C: sampled now, before anything else can change the frontmost app, and not
+		// guessed later from the key window — the panel is key by then. See `CopyCapture.targetPID`.
+		let copyTarget = CopyCapture.targetPID(
+			frontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier,
+			own: ProcessInfo.processInfo.processIdentifier)
 		let token = PanelController.shared.beginCapture(label: "读取选区…")
 		let started = DispatchTime.now()
 
@@ -120,7 +125,7 @@ final class AppController {
 		Task.detached(priority: .userInitiated) {
 			let text = AppController.readSelection(
 				ax: { SelectionReader.selectedText(cursor: cursor) },
-				allowCopy: allowCopy, copy: .live)
+				allowCopy: allowCopy, copy: .live(targetPID: copyTarget))
 			await MainActor.run {
 				// A read that has been superseded must not land: pressing ⌥D twice quickly would
 				// otherwise let the slower first read overwrite the second one's content.

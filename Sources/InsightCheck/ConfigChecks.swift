@@ -1732,6 +1732,14 @@ Check.group("提示词")
 		Check.that(blank.capture().selectedText() == nil, "复制到的是空白 → 没有选区")
 		Check.that(blank.events.last == "restore-original", "复制到空白也要把剪贴板还原")
 
+		// The delivery target. The panel is key while the read runs, so a ⌘C posted to the HID tap
+		// lands in our own panel; it has to be addressed to the app that holds the selection.
+		Check.equal(
+			CopyCapture.targetPID(frontmost: 4242, own: 100), 4242, "⌘C 发给前台应用的进程")
+		Check.that(
+			CopyCapture.targetPID(frontmost: 100, own: 100) == nil, "前台是自己（面板被点过）时不寄给自己")
+		Check.that(CopyCapture.targetPID(frontmost: nil, own: 100) == nil, "取不到前台应用时没有目标")
+
 		// Where the capture is called from: AX first, ⌘C only when AX is empty and it is allowed.
 		let viaAX = CopyProbe()
 		viaAX.appCopies = "不该被读到"

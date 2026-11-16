@@ -58,40 +58,67 @@ struct CopyCapture: Sendable {
 		return text.flatMap(SelectionReader.clean)
 	}
 
-	/// The real pasteboard and a real synthetic ⌘C.
-	static let live = CopyCapture(
-		changeCount: { NSPasteboard.general.changeCount },
-		snapshot: {
-			(NSPasteboard.general.pasteboardItems ?? []).map { item in
-				var entry: [NSPasteboard.PasteboardType: Data] = [:]
-				for type in item.types {
-					if let data = item.data(forType: type) { entry[type] = data }
+	/// The process that should receive ⌘C: the frontmost app, unless that is us (or unknown), in
+	/// which case there is no one to address and the event goes to the HID tap instead.
+	///
+	/// **Why the event is addressed to a process at all.** The panel is shown — and made key — before
+	/// the selection is read, and a `.nonactivatingPanel` that is key receives keystrokes even though
+	/// the app that owns it is not active. A ⌘C posted to the HID tap therefore lands in *our own
+	/// panel*, copies nothing, and the capture falls through to the stale clipboard: the "I selected
+	/// something and it translated what I copied last time" bug. Measured against TextEdit with a key
+	/// panel on screen: HID-tap delivery (with either event-source state) changed the pasteboard 0
+	/// times out of 2, `postToPid` 1 out of 1.
+	static func targetPID(frontmost: pid_t?, own: pid_t) -> pid_t? {
+		guard let frontmost, frontmost != own else { return nil }
+		return frontmost
+	}
+
+	/// The real pasteboard and a real synthetic ⌘C, addressed to `targetPID` when there is one.
+	/// Sampled by the caller on the main actor, at press time, for the same reason the cursor is:
+	/// it is a fact about the moment of the press.
+	static func live(targetPID: pid_t?) -> CopyCapture {
+		CopyCapture(
+			changeCount: { NSPasteboard.general.changeCount },
+			snapshot: {
+				(NSPasteboard.general.pasteboardItems ?? []).map { item in
+					var entry: [NSPasteboard.PasteboardType: Data] = [:]
+					for type in item.types {
+						if let data = item.data(forType: type) { entry[type] = data }
+					}
+					return entry
 				}
-				return entry
-			}
-		},
-		restore: { saved in
-			let pasteboard = NSPasteboard.general
-			pasteboard.clearContents()
-			let items = saved.map { entry -> NSPasteboardItem in
-				let item = NSPasteboardItem()
-				for (type, data) in entry { item.setData(data, forType: type) }
-				return item
-			}
-			if !items.isEmpty { pasteboard.writeObjects(items) }
-		},
-		sendCopy: {
-			// `.privateState`, not `.hidSystemState`: the hotkey may still be physically held with
-			// its own modifiers (⌥D), and the combined state would turn ⌘C into ⌘⌥C. With a private
-			// source the flags are exactly the ones set below.
-			let source = CGEventSource(stateID: .privateState)
-			let down = CGEvent(keyboardEventSource: source, virtualKey: KeyCodeCatalog.c, keyDown: true)
-			let up = CGEvent(keyboardEventSource: source, virtualKey: KeyCodeCatalog.c, keyDown: false)
-			down?.flags = [.maskCommand]
-			up?.flags = [.maskCommand]
-			down?.post(tap: .cghidEventTap)
-			up?.post(tap: .cghidEventTap)
-		},
-		readText: { NSPasteboard.general.string(forType: .string) }
-	)
+			},
+			restore: { saved in
+				let pasteboard = NSPasteboard.general
+				pasteboard.clearContents()
+				let items = saved.map { entry -> NSPasteboardItem in
+					let item = NSPasteboardItem()
+					for (type, data) in entry { item.setData(data, forType: type) }
+					return item
+				}
+				if !items.isEmpty { pasteboard.writeObjects(items) }
+			},
+			sendCopy: {
+				// `.hidSystemState` with explicit flags, the same source the proven ⌘V write-back
+				// uses. The hotkey's own modifiers cannot leak in through `postToPid`, which does not
+				// merge the physical modifier state.
+				let source = CGEventSource(stateID: .hidSystemState)
+				let down = CGEvent(keyboardEventSource: source, virtualKey: KeyCodeCatalog.c, keyDown: true)
+				let up = CGEvent(keyboardEventSource: source, virtualKey: KeyCodeCatalog.c, keyDown: false)
+				down?.flags = [.maskCommand]
+				up?.flags = [.maskCommand]
+				if let targetPID {
+					down?.postToPid(targetPID)
+					up?.postToPid(targetPID)
+				} else {
+					down?.post(tap: .cghidEventTap)
+					up?.post(tap: .cghidEventTap)
+				}
+			},
+			readText: { NSPasteboard.general.string(forType: .string) }
+		)
+	}
+
+	/// Snapshot / restore only — for checks that never send a key.
+	static var live: CopyCapture { live(targetPID: nil) }
 }

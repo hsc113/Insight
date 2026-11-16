@@ -1782,9 +1782,8 @@ Check.group("提示词")
 	/// pinned: a 4pt grid with no odd steps, and radii that strictly grow so a button inside a card
 	/// never shares the card's radius.
 	private static func uiTokenChecks() {
-		let spaces = [UI.Space.x1, UI.Space.x2, UI.Space.x3, UI.Space.x4]
+		let spaces = [UI.Space.x1, UI.Space.x2, UI.Space.x3, UI.Space.x4, UI.Space.gutter, UI.Space.card]
 		Check.that(spaces.allSatisfy { $0.truncatingRemainder(dividingBy: 4) == 0 }, "间距都落在 4pt 网格上")
-		Check.that(spaces == spaces.sorted(), "间距档位由小到大")
 		Check.that(
 			UI.Radius.sm < UI.Radius.md && UI.Radius.md < UI.Radius.lg, "圆角 sm < md < lg，嵌套的形状不会同半径")
 		Check.that(

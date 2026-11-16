@@ -19,7 +19,7 @@ struct ResultView: View {
 
 	/// Side margin. The cards, the input strip and the top bar all start at it, which is what makes
 	/// the panel read as one object rather than a stack of rows.
-	private let gutter: CGFloat = UI.Space.x3
+	private let gutter: CGFloat = UI.Space.gutter
 
 	var body: some View {
 		let theme = Settings.shared.panelTheme
@@ -92,9 +92,9 @@ struct ResultView: View {
 	) -> some View {
 		HStack(spacing: 5) {
 			Image(systemName: icon)
-				.font(.system(size: UI.Size.micro))
+				.font(UI.font(UI.Size.micro))
 			Text(text)
-				.font(.system(size: UI.Size.caption))
+				.font(UI.font(UI.Size.caption))
 			Spacer()
 		}
 		.foregroundStyle(tint)
@@ -119,7 +119,7 @@ struct ResultView: View {
 		HStack(spacing: 6) {
 			HStack(spacing: 6) {
 				Text("Insight")
-					.font(.system(size: UI.Size.caption, weight: .medium))
+					.font(UI.font(UI.Size.caption, weight: .medium))
 					.foregroundStyle(.secondary)
 
 				Spacer(minLength: 8)
@@ -353,7 +353,7 @@ private struct LanguagePairPicker: View {
 				onPick: { model.setSourceLanguage($0) })
 
 			Image(systemName: "arrow.right")
-				.font(.system(size: 8, weight: .semibold))
+				.font(UI.font(8, weight: .semibold))
 				.foregroundStyle(.tertiary)
 
 			// Shows the setting, not the pipeline's resolved value: 自动识别 is a legal choice here
@@ -388,7 +388,7 @@ private struct LanguagePairPicker: View {
 			}
 		} label: {
 			Label(Languages.name(selection), systemImage: systemImage)
-				.font(.system(size: UI.Size.caption))
+				.font(UI.font(UI.Size.caption))
 				.labelStyle(.titleAndIcon)
 		}
 		.menuStyle(.borderlessButton)
@@ -521,7 +521,7 @@ private struct BarButton: View {
 	var body: some View {
 		Button(action: action) {
 			Image(systemName: system)
-				.font(.system(size: 11, weight: .medium))
+				.font(UI.font(11, weight: .medium))
 				.foregroundStyle(active ? Color.primary : (hovering ? Color.primary : Color.secondary))
 				.frame(width: 22, height: 22)
 				.background(
@@ -569,7 +569,7 @@ private struct InputStrip: View {
 		)
 		.overlay(
 			RoundedRectangle(cornerRadius: UI.Radius.md)
-				.strokeBorder(UI.border, lineWidth: 1)
+				.strokeBorder(UI.border, lineWidth: UI.borderWidth)
 		)
 		// Both directions, so collapsing hands focus back and Esc / ⌘R behave normally again.
 		.onChange(of: model.inputExpanded) { _, expanded in
@@ -588,7 +588,7 @@ private struct InputStrip: View {
 				// from one read off the screen.
 				if let source = model.sourceLabel {
 					Text(source)
-						.font(.system(size: UI.Size.micro, weight: .medium))
+						.font(UI.font(UI.Size.micro, weight: .medium))
 						.foregroundStyle(.secondary)
 						.padding(.horizontal, 6)
 						.padding(.vertical, 2)
@@ -599,7 +599,7 @@ private struct InputStrip: View {
 				// carries the same shape next to the word "Insight" — two identical marks 20pt
 				// apart, one of which said nothing the row's own text did not.
 				Text(model.input.isEmpty ? (model.hint ?? "无输入") : model.collapsedPreview)
-					.font(.system(size: UI.Size.label))
+					.font(UI.font(UI.Size.label))
 					.foregroundStyle(model.input.isEmpty ? .tertiary : .secondary)
 					.lineLimit(1)
 
@@ -607,12 +607,12 @@ private struct InputStrip: View {
 
 				if !model.input.isEmpty {
 					Text("\(model.input.count)")
-						.font(.system(size: UI.Size.micro).monospacedDigit())
+						.font(UI.font(UI.Size.micro).monospacedDigit())
 						.foregroundStyle(.tertiary)
 				}
 
 				Image(systemName: "chevron.down")
-					.font(.system(size: 8, weight: .semibold))
+					.font(UI.font(8, weight: .semibold))
 					.foregroundStyle(.tertiary)
 			}
 			.padding(.horizontal, UI.Space.x3)
@@ -626,7 +626,7 @@ private struct InputStrip: View {
 	private var editor: some View {
 		VStack(alignment: .leading, spacing: 7) {
 			TextEditor(text: $model.draft)
-				.font(.system(size: 12))
+				.font(UI.font(12))
 				.scrollContentBackground(.hidden)
 				.focused($draftFocused)
 				// Asked for twice on purpose: once when the strip expands, and once here, when the
@@ -650,12 +650,12 @@ private struct InputStrip: View {
 				// Both bindings spelled out, because after the change Return is no longer a newline
 				// and there is nothing else on screen that says so.
 				Text("↩ 分析 · ⇧↩ 换行")
-					.font(.system(size: 10))
+					.font(UI.font(10))
 					.foregroundStyle(.tertiary)
 				Spacer()
 				Button("收起") { model.collapseInput() }
 					.buttonStyle(.plain)
-					.font(.system(size: 11))
+					.font(UI.font(11))
 					.foregroundStyle(.secondary)
 				Button("分析") { model.applyDraft() }
 					.buttonStyle(.borderedProminent)
@@ -746,9 +746,9 @@ private struct ResultCard<Accessory: View>: View {
 			}
 		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
-		.padding(.horizontal, UI.Space.x3)
+		.padding(.horizontal, UI.Space.card)
 		.padding(.top, UI.Space.x1)
-		.padding(.bottom, UI.Space.x3)
+		.padding(.bottom, UI.Space.card)
 		// A real card: a barely-there fill and a hairline, inset to the panel margin. The border does
 		// the work the old full-bleed divider did. Only the functional layer gets glass.
 		.background(
@@ -757,7 +757,7 @@ private struct ResultCard<Accessory: View>: View {
 		)
 		.overlay(
 			RoundedRectangle(cornerRadius: UI.Radius.lg)
-				.strokeBorder(UI.border, lineWidth: 1)
+				.strokeBorder(UI.border, lineWidth: UI.borderWidth)
 		)
 		.padding(.horizontal, gutter)
 	}
@@ -774,7 +774,7 @@ private struct ResultCard<Accessory: View>: View {
 					withAnimation(.snappy(duration: 0.16)) { collapsed.toggle() }
 				} label: {
 					Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-						.font(.system(size: 7, weight: .bold))
+						.font(UI.font(7, weight: .bold))
 						.foregroundStyle(.quaternary)
 						.frame(width: 11, height: 11)
 						.contentShape(Rectangle())
@@ -783,18 +783,18 @@ private struct ResultCard<Accessory: View>: View {
 			}
 
 			Image(systemName: kind.icon)
-				.font(.system(size: 10, weight: .medium))
+				.font(UI.font(10, weight: .medium))
 				.foregroundStyle(enabled ? kind.accent : Color.secondary)
 
 			Text(kind.title)
-				.font(.system(size: UI.Size.label, weight: .semibold))
+				.font(UI.font(UI.Size.label, weight: .semibold))
 
 			// The language pickers change a request this card no longer makes, so they go with it.
 			if !compact { headerAccessory }
 
 			if !enabled {
 				Text("未启用")
-					.font(.system(size: UI.Size.micro))
+					.font(UI.font(UI.Size.micro))
 					.foregroundStyle(.tertiary)
 			}
 
@@ -802,7 +802,7 @@ private struct ResultCard<Accessory: View>: View {
 
 			if let firstTokenMs, !compact {
 				Text("\(firstTokenMs) ms")
-					.font(.system(size: UI.Size.micro).monospacedDigit())
+					.font(UI.font(UI.Size.micro).monospacedDigit())
 					.foregroundStyle(.tertiary)
 			}
 
@@ -859,12 +859,12 @@ private struct ResultCard<Accessory: View>: View {
 				.frame(width: 5, height: 5)
 		case .done:
 			Image(systemName: "checkmark")
-				.font(.system(size: 9, weight: .bold))
+				.font(UI.font(9, weight: .bold))
 				.foregroundStyle(.tertiary)
 		case .failed:
 			Button(action: onRetry) {
 				Image(systemName: "exclamationmark.circle.fill")
-					.font(.system(size: UI.Size.caption))
+					.font(UI.font(UI.Size.caption))
 					.foregroundStyle(UI.destructive)
 					.frame(width: 16, height: 16)
 					.contentShape(Rectangle())
@@ -881,11 +881,11 @@ private struct ResultCard<Accessory: View>: View {
 			} label: {
 				HStack(spacing: 4) {
 					Image(systemName: showReasoning ? "chevron.down" : "chevron.right")
-						.font(.system(size: 6, weight: .bold))
+						.font(UI.font(6, weight: .bold))
 					Text("思考过程")
-						.font(.system(size: 10.5))
+						.font(UI.font(10.5))
 					Text("\(reasoning.count) 字")
-						.font(.system(size: 9.5).monospacedDigit())
+						.font(UI.font(9.5).monospacedDigit())
 					Spacer()
 				}
 				.foregroundStyle(.tertiary)
@@ -896,7 +896,7 @@ private struct ResultCard<Accessory: View>: View {
 			if showReasoning {
 				ScrollView {
 					Text(reasoning)
-						.font(.system(size: 11))
+						.font(UI.font(11))
 						.foregroundStyle(.secondary)
 						.lineSpacing(2)
 						.textSelection(.enabled)
@@ -917,7 +917,7 @@ private struct ResultCard<Accessory: View>: View {
 		// not coming. One line, one place to change it.
 		if compact {
 			Text(disabledHint)
-				.font(.system(size: 11))
+				.font(UI.font(11))
 				.foregroundStyle(.tertiary)
 				.lineLimit(1)
 				.padding(.top, 3)
@@ -939,7 +939,7 @@ private struct ResultCard<Accessory: View>: View {
 		switch phase {
 		case .failed(let message):
 			Text(message)
-				.font(.system(size: UI.Size.label))
+				.font(UI.font(UI.Size.label))
 				.foregroundStyle(UI.destructive)
 				.textSelection(.enabled)
 				.fixedSize(horizontal: false, vertical: true)
@@ -951,7 +951,7 @@ private struct ResultCard<Accessory: View>: View {
 			// instead and never gets here. So `.idle` on a live card means exactly one thing — the
 			// feature is on and nothing has been asked of it yet.
 			Text("等待输入")
-				.font(.system(size: UI.Size.label))
+				.font(UI.font(UI.Size.label))
 				.foregroundStyle(.tertiary)
 				.padding(.top, 4)
 				.frame(maxWidth: .infinity, alignment: .leading)
@@ -966,8 +966,8 @@ private struct ResultCard<Accessory: View>: View {
 						.padding(.top, 4)
 				} else {
 					Text(text.isEmpty ? " " : text)
-						.font(.system(size: UI.Size.body))
-						.lineSpacing(4)
+						.font(UI.font(UI.Size.body))
+						.lineSpacing(UI.lineSpacing)
 						.textSelection(.enabled)
 						.frame(maxWidth: .infinity, alignment: .leading)
 						.padding(.top, 4)
@@ -986,14 +986,14 @@ private struct PermissionCard: View {
 	var body: some View {
 		VStack(spacing: 14) {
 			Image(systemName: permission == .accessibility ? "lock.shield" : "video.badge.waveform")
-				.font(.system(size: 28, weight: .light))
+				.font(UI.font(28, weight: .light))
 				.foregroundStyle(.orange)
 
 			Text(permission.title)
-				.font(.system(size: 14, weight: .semibold))
+				.font(UI.font(14, weight: .semibold))
 
 			Text(permission.detail)
-				.font(.system(size: 11.5))
+				.font(UI.font(11.5))
 				.multilineTextAlignment(.center)
 				.foregroundStyle(.secondary)
 				.fixedSize(horizontal: false, vertical: true)

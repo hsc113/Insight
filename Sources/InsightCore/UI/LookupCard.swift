@@ -13,11 +13,11 @@ struct LookupCard: View {
 		VStack(alignment: .leading, spacing: 10) {
 			HStack(spacing: 6) {
 				Image(systemName: "magnifyingglass")
-					.font(.system(size: 10, weight: .medium))
+					.font(UI.font(10, weight: .medium))
 					.foregroundStyle(.tertiary)
 
 				Text(word)
-					.font(.system(size: 13, weight: .semibold))
+					.font(UI.font(13, weight: .semibold))
 					.lineLimit(1)
 
 				Spacer(minLength: 8)
@@ -28,7 +28,7 @@ struct LookupCard: View {
 						NSPasteboard.general.setString(pipeline.translation, forType: .string)
 					} label: {
 						Image(systemName: "doc.on.doc")
-							.font(.system(size: 10))
+							.font(UI.font(10))
 					}
 					.buttonStyle(.plain)
 					.foregroundStyle(.secondary)
@@ -37,7 +37,7 @@ struct LookupCard: View {
 
 				Button(action: onClose) {
 					Image(systemName: "xmark")
-						.font(.system(size: 10))
+						.font(UI.font(10))
 				}
 				.buttonStyle(.plain)
 				.foregroundStyle(.secondary)
@@ -50,18 +50,18 @@ struct LookupCard: View {
 				HStack(spacing: 6) {
 					ProgressView().controlSize(.small).scaleEffect(0.6)
 					Text("查询中…")
-						.font(.system(size: 11))
+						.font(UI.font(11))
 						.foregroundStyle(.tertiary)
 				}
 			} else {
 				if !pipeline.summary.isEmpty {
 					Text(pipeline.summary)
-						.font(.system(size: 12))
+						.font(UI.font(12))
 						.foregroundStyle(.secondary)
 						.lineSpacing(2)
 				}
 				Text(pipeline.translation)
-					.font(.system(size: 13))
+					.font(UI.font(13))
 					.lineSpacing(3)
 					.textSelection(.enabled)
 					.frame(maxWidth: .infinity, alignment: .leading)

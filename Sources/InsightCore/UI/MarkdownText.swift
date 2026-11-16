@@ -111,29 +111,29 @@ struct MarkdownText: View {
 		switch block {
 		case .gist(let value):
 			styled(value, fallbackSize: 13.5)
-				.font(.system(size: 13.5, weight: .medium))
+				.font(UI.font(13.5, weight: .medium))
 				.fixedSize(horizontal: false, vertical: true)
 				.padding(.bottom, 7)
 		case .bullet(let value):
 			HStack(alignment: .firstTextBaseline, spacing: 6) {
 				Text("•")
-					.font(.system(size: 13))
+					.font(UI.font(13))
 					.foregroundStyle(.secondary)
 					.frame(width: Self.bulletInset - 6, alignment: .leading)
 				styled(value, fallbackSize: 13)
-					.font(.system(size: 13))
+					.font(UI.font(13))
 					.fixedSize(horizontal: false, vertical: true)
 					.frame(maxWidth: .infinity, alignment: .leading)
 			}
 			.padding(.bottom, 4)
 		case .paragraph(let value):
 			styled(value, fallbackSize: 13)
-				.font(.system(size: 13))
+				.font(UI.font(13))
 				.fixedSize(horizontal: false, vertical: true)
 				.padding(.bottom, 5)
 		case .pending(let value):
 			Text(value)
-				.font(.system(size: 13))
+				.font(UI.font(13))
 				.fixedSize(horizontal: false, vertical: true)
 				.padding(.bottom, 4)
 		}
@@ -151,7 +151,7 @@ struct MarkdownText: View {
 			Text(attributed)
 		} else {
 			Text(value)
-				.font(.system(size: fallbackSize))
+				.font(UI.font(fallbackSize))
 		}
 	}
 }

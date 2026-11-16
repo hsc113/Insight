@@ -422,6 +422,9 @@ Check.group("提示词")
 		Check.group("剪贴板回退")
 		await clipboardFallbackChecks()
 
+		Check.group("读不到选区时模拟 ⌘C 取词")
+		await copyCaptureChecks()
+
 		Check.group("总结的 Markdown 渲染")
 		await markdownChecks()
 
@@ -1677,6 +1680,99 @@ Check.group("提示词")
 			Check.that(true, "剪贴板被其他进程占用，本轮跳过写入断言（功能本身已处理）")
 		}
 		Check.that(!ClipboardWriter.copy("   \n  "), "空白文本不写剪贴板")
+	}
+
+	/// Records the order the capture touches the pasteboard in, because "the user's clipboard comes
+	/// back" and "we only restore after reading" are properties of the sequence, not of any one call.
+	private final class CopyProbe: @unchecked Sendable {
+		var events: [String] = []
+		var count = 0
+		let original: CopyCapture.Snapshot = [[.string: Data("用户原来的剪贴板".utf8)]]
+		/// What the target app puts on the pasteboard when it receives ⌘C; nil = copies nothing.
+		var appCopies: String?
+
+		func capture(timeout: TimeInterval = 0.05) -> CopyCapture {
+			CopyCapture(
+				changeCount: { self.count },
+				snapshot: { self.events.append("snapshot"); return self.original },
+				restore: { saved in
+					self.events.append(saved == self.original ? "restore-original" : "restore-wrong")
+				},
+				sendCopy: {
+					self.events.append("copy")
+					if self.appCopies != nil { self.count += 1 }
+				},
+				readText: { self.events.append("read"); return self.appCopies },
+				timeout: timeout, pollInterval: 0.005)
+		}
+	}
+
+	@MainActor
+	private static func copyCaptureChecks() async {
+		// The bug: AX reads nothing, and the old code went straight to the stale clipboard.
+		let hit = CopyProbe()
+		hit.appCopies = "  刚划选的这一段\n"
+		Check.equal(hit.capture().selectedText(), "刚划选的这一段", "应用响应 ⌘C 时取到刚划选的文字（已清理空白）")
+		Check.equal(
+			hit.events, ["snapshot", "copy", "read", "restore-original"],
+			"顺序：先存剪贴板 → 发 ⌘C → 读 → 还原；读完之前不还原")
+
+		let miss = CopyProbe()
+		miss.appCopies = nil
+		Check.that(miss.capture().selectedText() == nil, "应用没复制任何东西 → 没有选区")
+		Check.that(
+			!miss.events.contains { $0.hasPrefix("restore") },
+			"没复制就不动剪贴板（没清空，所以没有东西要还）")
+
+		let blank = CopyProbe()
+		blank.appCopies = "   \n "
+		Check.that(blank.capture().selectedText() == nil, "复制到的是空白 → 没有选区")
+		Check.that(blank.events.last == "restore-original", "复制到空白也要把剪贴板还原")
+
+		// Where the capture is called from: AX first, ⌘C only when AX is empty and it is allowed.
+		let viaAX = CopyProbe()
+		viaAX.appCopies = "不该被读到"
+		Check.equal(
+			AppController.readSelection(ax: { "辅助功能读到的" }, allowCopy: true, copy: viaAX.capture()),
+			"辅助功能读到的", "辅助功能读到了就不发 ⌘C")
+		Check.that(viaAX.events.isEmpty, "辅助功能读到了就完全不碰剪贴板")
+
+		let viaCopy = CopyProbe()
+		viaCopy.appCopies = "⌘C 取到的"
+		Check.equal(
+			AppController.readSelection(ax: { nil }, allowCopy: true, copy: viaCopy.capture()),
+			"⌘C 取到的", "辅助功能读不到时用 ⌘C 兜底")
+
+		let blocked = CopyProbe()
+		blocked.appCopies = "不该被读到"
+		Check.that(
+			AppController.readSelection(ax: { nil }, allowCopy: false, copy: blocked.capture()) == nil,
+			"面板里有选中的词时不发 ⌘C（那是查词，不是新选区）")
+		Check.that(blocked.events.isEmpty, "不发 ⌘C 就不碰剪贴板")
+
+		// The real snapshot/restore, every type: a copied image or file must not come back as text only.
+		let pasteboard = NSPasteboard.general
+		let live = CopyCapture.live
+		let typeA = NSPasteboard.PasteboardType("com.hsc113.insight.check.a")
+		let typeB = NSPasteboard.PasteboardType("com.hsc113.insight.check.b")
+		let saved = live.snapshot()
+		defer { live.restore(saved) }
+		pasteboard.clearContents()
+		let item = NSPasteboardItem()
+		item.setString("多类型剪贴板", forType: .string)
+		item.setData(Data([1, 2, 3]), forType: typeA)
+		item.setData(Data([9, 8]), forType: typeB)
+		if pasteboard.writeObjects([item]) {
+			let snap = live.snapshot()
+			pasteboard.clearContents()
+			pasteboard.setString("被 ⌘C 覆盖了", forType: .string)
+			live.restore(snap)
+			Check.equal(pasteboard.string(forType: .string), "多类型剪贴板", "还原后文本一致")
+			Check.equal(pasteboard.data(forType: typeA), Data([1, 2, 3]), "还原后其他类型的数据也在（A）")
+			Check.equal(pasteboard.data(forType: typeB), Data([9, 8]), "还原后其他类型的数据也在（B）")
+		} else {
+			Check.that(true, "剪贴板被其他进程占用，本轮跳过真实还原断言")
+		}
 	}
 
 	@MainActor

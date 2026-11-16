@@ -108,13 +108,19 @@ final class AppController {
 		// background read gets going and the element under the *current* position is not the one
 		// holding the selection.
 		let cursor = SelectionReader.CursorSnapshot.current()
+		// A word selected inside our own result is a lookup, not a new capture — and ⌘C would copy
+		// *that* word and turn the lookup into a fresh translation. Decided here, on the main actor,
+		// where the panel's views can be read.
+		let allowCopy = PanelController.shared.selectedTextInsidePanel() == nil
 		let token = PanelController.shared.beginCapture(label: "读取选区…")
 		let started = DispatchTime.now()
 
 		// `AppController.shared` rather than a captured `self`: it is a singleton, so there is no
 		// instance to keep alive, and the detached closure is only alive for the length of the read.
 		Task.detached(priority: .userInitiated) {
-			let text = SelectionReader.selectedText(cursor: cursor)
+			let text = AppController.readSelection(
+				ax: { SelectionReader.selectedText(cursor: cursor) },
+				allowCopy: allowCopy, copy: .live)
 			await MainActor.run {
 				// A read that has been superseded must not land: pressing ⌥D twice quickly would
 				// otherwise let the slower first read overwrite the second one's content.
@@ -123,6 +129,21 @@ final class AppController {
 				AppController.shared.handleCapturedText(text, token: token)
 			}
 		}
+	}
+
+	/// Accessibility first, because it is free and does not touch anything; a synthetic ⌘C only when
+	/// that found nothing. Apps that do not expose `AXSelectedText` (Chromium pages, Electron, PDF
+	/// viewers) used to fall through to the clipboard fallback, which translates the *previous* copy
+	/// rather than the text just dragged over — the F3-translates-the-wrong-thing bug. See
+	/// `CopyCapture` for why the old "no forced ⌘C" decision was reversed.
+	///
+	/// Takes both readers as values so the order can be checked without a real target app.
+	nonisolated static func readSelection(
+		ax: @Sendable () -> String?, allowCopy: Bool, copy: CopyCapture
+	) -> String? {
+		if let text = ax() { return text }
+		guard allowCopy else { return nil }
+		return copy.selectedText()
 	}
 
 	/// The capture landed. A document selection always wins; the panel's own selection is only

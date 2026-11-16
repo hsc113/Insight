@@ -5,9 +5,9 @@ import ApplicationServices
 ///
 /// The standard three-step cascade for this job, trimmed to what matters: focused element →
 /// element under the cursor → `AXSelectedTextMarkerRange` (which is what Safari and every
-/// WebKit view actually answers to). No Chrome AppleScript bridge and no clipboard fallback —
-/// the first two cover essentially every Mac app, and the clipboard route would clobber the
-/// user's pasteboard on every invocation.
+/// WebKit view actually answers to). No Chrome AppleScript bridge, and no clipboard in this file:
+/// apps that expose no selection to Accessibility are handled one level up by `CopyCapture`,
+/// which borrows the pasteboard and puts it back.
 ///
 /// # Why the read is off the main thread, and why it is ordered the way it is
 ///
